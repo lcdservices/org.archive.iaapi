@@ -10,7 +10,10 @@ use CRM_Iaapi_ExtensionUtil as E;
  * @see http://wiki.civicrm.org/confluence/display/CRMDOC/API+Architecture+Standards
  */
 function _civicrm_api3_ia_Aggregate_spec(&$spec) {
-  $spec['magicword']['api.required'] = 1;
+  $spec['financial_type_id']['api.required'] = 1;
+  $spec['contribution_status_id']['api.required'] = 1;
+  $spec['receive_date_from']['api.required'] = 1;
+  $spec['receive_date_to']['api.required'] = 1;
 }
 
 /**
@@ -23,20 +26,42 @@ function _civicrm_api3_ia_Aggregate_spec(&$spec) {
  * @throws API_Exception
  */
 function civicrm_api3_ia_Aggregate($params) {
-  if (array_key_exists('magicword', $params) && $params['magicword'] == 'sesame') {
-    $returnValues = array(
-      // OK, return several data rows
-      12 => array('id' => 12, 'name' => 'Twelve'),
-      34 => array('id' => 34, 'name' => 'Thirty four'),
-      56 => array('id' => 56, 'name' => 'Fifty six'),
-    );
-    // ALTERNATIVE: $returnValues = array(); // OK, success
-    // ALTERNATIVE: $returnValues = array("Some value"); // OK, return a single value
+  $financialTypes = CRM_Contribute_PseudoConstant::financialType();
+  $contributionStatus = CRM_Contribute_PseudoConstant::contributionStatus();
 
-    // Spec: civicrm_api3_create_success($values = 1, $params = array(), $entity = NULL, $action = NULL)
-    return civicrm_api3_create_success($returnValues, $params, 'NewEntity', 'NewAction');
+  $type = array_search($params['financial_type_id'], $financialTypes);
+  $status = array_search($params['contribution_status_id'], $contributionStatus);
+  $from = date('Y-m-d H:i:s', strtotime($params['receive_date_from']));
+  $to = date('Y-m-d H:i:s', strtotime($params['receive_date_to']));
+
+  if (empty($type) || empty($status) || empty($from) || empty($to)) {
+    throw new API_Exception('Missing or invalid parameters.', 9001);
   }
-  else {
-    throw new API_Exception(/*errorMessage*/ 'Everyone knows that the magicword is "sesame"', /*errorCode*/ 1234);
+
+  $sql = "
+    SELECT SUM(total_amount) aggregate_amount, source
+    FROM civicrm_contribution
+    WHERE financial_type_id = %1
+      AND contribution_status_id = %2
+      AND receive_date BETWEEN %3 AND %4
+    GROUP BY source
+  ";
+  $dao = CRM_Core_DAO::executeQuery($sql, [
+    1 => [$type, 'Positive'],
+    2 => [$status, 'Positive'],
+    3 => [$from, 'String'],
+    4 => [$to, 'String'],
+  ]);
+
+  $aggregates = [];
+  while ($dao->fetch()) {
+    $aggregates[$dao->source] = $dao->aggregate_amount;
   }
+
+  Civi::log()->debug('', [
+    'sql' => $sql,
+    'aggregates' => $aggregates,
+  ]);
+
+  return civicrm_api3_create_success($aggregates, $params, 'Ia', 'aggregate');
 }

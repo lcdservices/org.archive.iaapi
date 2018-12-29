@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <extension key="org.archive.iaapi" type="module">
   <file>iaapi</file>
-  <name>IA: APIs</name>
+  <name>Internet Archive: APIs</name>
   <description></description>
   <license>AGPL-3.0</license>
   <maintainer>
