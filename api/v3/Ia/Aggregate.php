@@ -63,7 +63,9 @@ function civicrm_api3_ia_Aggregate($params) {
     CRM_Utils_Array::value('Stripe one-time', $aggregates, 0) + CRM_Utils_Array::value('PayPal one-time', $aggregates, 0);
   $aggregates['total_subscription'] =
     (CRM_Utils_Array::value('Stripe subscription', $aggregates, 0) + CRM_Utils_Array::value('PayPal subscription', $aggregates, 0)) * 9;
-  $aggregates['total_grand'] = $aggregates['total_one_time'] + $aggregates['total_subscription'];
+  $aggregates['total_upsell'] =
+    CRM_Utils_Array::value('upsell-donation', $aggregates, 0) * 10;
+  $aggregates['total_grand'] = $aggregates['total_one_time'] + $aggregates['total_subscription'] + $aggregates['total_upsell'];
 
   /*Civi::log()->debug('', [
     'sql' => $sql,
